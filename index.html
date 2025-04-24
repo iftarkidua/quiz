@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sliding Image Puzzle</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sliding Puzzle</title>
     <style>
         body {
             margin: 0;
@@ -13,64 +13,51 @@
             align-items: center;
             min-height: 100vh;
             background: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
+            touch-action: manipulation;
         }
 
         .game-container {
-            text-align: center;
-        }
-
-        .puzzle-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 2px;
-            width: 800px;
-            height: 600px;
-            max-width: 90vw;
-            max-height: 67.5vw;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            margin: 20px auto;
-        }
-
-        .tile {
-            background-size: 400% 300%;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            cursor: pointer;
+            width: 100%;
+            max-width: 800px;
             position: relative;
         }
 
-        .tile::after {
-            content: '';
+        .puzzle-container {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 3:4 aspect ratio */
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .tile {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0);
-            transition: background 0.2s ease;
+            background-size: 400% 300%;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-sizing: border-box;
         }
 
         .tile:hover {
             transform: scale(1.02);
-            z-index: 1;
+            z-index: 2;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
-        .tile:hover::after {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
         .empty {
-            background: #ffffff;
+            background: #f8f9fa;
             box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.05);
         }
 
         @media (max-width: 600px) {
             .puzzle-container {
-                gap: 1px;
+                border-radius: 8px;
             }
         }
     </style>
@@ -81,110 +68,153 @@
     </div>
 
     <script>
-        const PUZZLE_IMAGE = 'https://miro.medium.com/v2/resize:fit:683/1*0CLRU3vizgoXJ058p44Fow.jpeg';
         const ROWS = 3;
         const COLS = 4;
-        let emptyCell = { row: ROWS - 1, col: COLS - 1 };
-
-        function createTile(row, col) {
-            const tile = document.createElement('div');
-            tile.className = 'tile';
-            tile.style.backgroundImage = `url(${PUZZLE_IMAGE})`;
-            tile.style.backgroundPosition = `${(col * 100) / (COLS - 1)}% ${(row * 100) / (ROWS - 1)}%`;
-            tile.dataset.originalRow = row;
-            tile.dataset.originalCol = col;
-            return tile;
-        }
+        const PUZZLE_IMAGE = 'https://rukminim2.flixcart.com/image/850/1000/xif0q/poster/t/i/y/small-disha-patani-14-disha-patani-poster-multicolor-photo-paper-original-imaghpycyw4rqwf5.jpeg?q=90&crop=false';
+        
+        let tileSize = { width: 0, height: 0 };
+        let emptyPos = { row: ROWS - 1, col: COLS - 1 };
+        let tiles = [];
 
         function initializePuzzle() {
             const container = document.getElementById('puzzleContainer');
             container.innerHTML = '';
             
+            // Calculate tile dimensions based on container size
+            const containerWidth = container.offsetWidth;
+            tileSize = {
+                width: containerWidth / COLS,
+                height: (containerWidth * 0.75) / ROWS
+            };
+
             // Create tiles
-            const tiles = [];
             for (let row = 0; row < ROWS; row++) {
                 for (let col = 0; col < COLS; col++) {
-                    if (!(row === emptyCell.row && col === emptyCell.col)) {
-                        tiles.push(createTile(row, col));
-                    }
+                    if (row === emptyPos.row && col === emptyPos.col) continue;
+                    
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.style.backgroundImage = `url(${PUZZLE_IMAGE})`;
+                    tile.style.backgroundPosition = `${(col * 100) / (COLS - 1)}% ${(row * 100) / (ROWS - 1)}%`;
+                    tile.dataset.row = row;
+                    tile.dataset.col = col;
+                    tile.addEventListener('click', handleTileClick);
+                    tile.addEventListener('touchstart', handleTileClick);
+                    
+                    tiles.push(tile);
+                    container.appendChild(tile);
                 }
             }
 
-            // Shuffle tiles
-            shuffleTiles(tiles);
+            // Create empty space
+            const emptyTile = document.createElement('div');
+            emptyTile.className = 'tile empty';
+            container.appendChild(emptyTile);
             
-            // Add tiles to container
-            tiles.forEach(tile => container.appendChild(tile));
-            container.appendChild(document.createElement('div')); // Empty cell
+            shufflePuzzle();
+            updatePositions();
+        }
 
-            // Add click handlers
-            container.querySelectorAll('.tile').forEach(tile => {
-                tile.addEventListener('click', () => handleTileClick(tile));
+        function shufflePuzzle() {
+            // Perform random valid moves to shuffle
+            const shuffleMoves = 100;
+            for (let i = 0; i < shuffleMoves; i++) {
+                const validMoves = getValidMoves();
+                const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                swapTiles(randomMove.row, randomMove.col);
+            }
+        }
+
+        function getValidMoves() {
+            const moves = [];
+            const directions = [
+                { row: -1, col: 0 }, // up
+                { row: 1, col: 0 },  // down
+                { row: 0, col: -1 }, // left
+                { row: 0, col: 1 }   // right
+            ];
+
+            directions.forEach(dir => {
+                const newRow = emptyPos.row + dir.row;
+                const newCol = emptyPos.col + dir.col;
+                if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                    moves.push({ row: newRow, col: newCol });
+                }
             });
+            return moves;
         }
 
-        function shuffleTiles(tiles) {
-            // Fisher-Yates shuffle
-            for (let i = tiles.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
-            }
-        }
-
-        function handleTileClick(clickedTile) {
-            const tiles = Array.from(document.querySelectorAll('.tile'));
-            const emptyIndex = tiles.length;
-            const clickedIndex = tiles.indexOf(clickedTile);
-            const clickedPosition = getTilePosition(clickedIndex);
-            const emptyPosition = getTilePosition(emptyIndex);
-
-            if (isAdjacent(clickedPosition, emptyPosition)) {
-                swapTiles(clickedIndex, emptyIndex);
+        function handleTileClick(e) {
+            e.preventDefault();
+            const tile = e.target;
+            const row = parseInt(tile.dataset.row);
+            const col = parseInt(tile.dataset.col);
+            
+            if (isAdjacent(row, col)) {
+                swapTiles(row, col);
+                updatePositions();
                 if (checkSolution()) {
-                    setTimeout(() => alert('Congratulations! Puzzle solved!'), 100);
+                    setTimeout(() => alert('Congratulations! Puzzle solved!'), 300);
                 }
             }
         }
 
-        function getTilePosition(index) {
-            const container = document.getElementById('puzzleContainer');
-            const children = Array.from(container.children);
-            const cols = COLS;
-            
-            return {
-                row: Math.floor(index / cols),
-                col: index % cols
-            };
+        function isAdjacent(row, col) {
+            return (Math.abs(row - emptyPos.row) + Math.abs(col - emptyPos.col)) === 1;
         }
 
-        function isAdjacent(pos1, pos2) {
-            return (
-                (Math.abs(pos1.row - pos2.row) === 1 && pos1.col === pos2.col) ||
-                (Math.abs(pos1.col - pos2.col) === 1 && pos1.row === pos2.row)
+        function swapTiles(row, col) {
+            // Find the clicked tile
+            const clickedTile = tiles.find(t => 
+                parseInt(t.dataset.row) === row && 
+                parseInt(t.dataset.col) === col
             );
+
+            // Update empty position
+            clickedTile.dataset.row = emptyPos.row;
+            clickedTile.dataset.col = emptyPos.col;
+            emptyPos = { row, col };
         }
 
-        function swapTiles(index1, index2) {
-            const container = document.getElementById('puzzleContainer');
-            const children = Array.from(container.children);
-            [children[index1], children[index2]] = [children[index2], children[index1]];
-            container.innerHTML = '';
-            children.forEach(child => container.appendChild(child));
+        function updatePositions() {
+            tiles.forEach(tile => {
+                const col = parseInt(tile.dataset.col);
+                const row = parseInt(tile.dataset.row);
+                
+                tile.style.width = `${tileSize.width}px`;
+                tile.style.height = `${tileSize.height}px`;
+                tile.style.left = `${col * tileSize.width}px`;
+                tile.style.top = `${row * tileSize.height}px`;
+            });
+
+            // Update empty tile position
+            const emptyTile = document.querySelector('.empty');
+            emptyTile.style.width = `${tileSize.width}px`;
+            emptyTile.style.height = `${tileSize.height}px`;
+            emptyTile.style.left = `${emptyPos.col * tileSize.width}px`;
+            emptyTile.style.top = `${emptyPos.row * tileSize.height}px`;
         }
 
         function checkSolution() {
-            const tiles = document.querySelectorAll('.tile');
-            return Array.from(tiles).every(tile => {
-                const currentPosition = getTilePosition(Array.from(tile.parentNode.children).indexOf(tile));
+            return tiles.every(tile => {
+                const originalRow = parseInt(tile.style.backgroundPositionY?.match(/\d+/)?.[0] || 0;
+                const originalCol = parseInt(tile.style.backgroundPositionX?.match(/\d+/)?.[0] || 0;
                 return (
-                    currentPosition.row === parseInt(tile.dataset.originalRow) &&
-                    currentPosition.col === parseInt(tile.dataset.originalCol)
+                    parseInt(tile.dataset.row) === originalRow &&
+                    parseInt(tile.dataset.col) === originalCol
                 );
             });
         }
 
-        // Start the game
-        initializePuzzle();
+        // Initialize and handle resize
+        window.addEventListener('load', initializePuzzle);
+        window.addEventListener('resize', () => {
+            tileSize = {
+                width: puzzleContainer.offsetWidth / COLS,
+                height: (puzzleContainer.offsetWidth * 0.75) / ROWS
+            };
+            updatePositions();
+        });
     </script>
 </body>
 </html>
