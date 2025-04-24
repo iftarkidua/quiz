@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Puzzle Quiz</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #eef2f3;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    #puzzle-container {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(4, 100px);
+      gap: 4px;
+    }
+    .tile {
+      width: 100px;
+      height: 100px;
+      background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaKgkpNODyKZw5rgWKDcCLHzdtZ6HzV1WF1g&s');
+      background-size: 300px 400px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .tile:hover {
+      transform: scale(1.05);
+    }
+    .empty {
+      background: #dfe6e9;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      border: none;
+      background-color: #0984e3;
+      color: white;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #74b9ff;
+    }
+  </style>
+</head>
+<body>
+  <h1>Image Puzzle Game</h1>
+  <button onclick="initPuzzle()">Start Puzzle</button>
+  <div id="puzzle-container"></div>
+
+  <script>
+    const rows = 4;
+    const cols = 3;
+    const puzzleContainer = document.getElementById('puzzle-container');
+
+    function initPuzzle() {
+      puzzleContainer.innerHTML = '';
+      let tiles = [];
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tile = document.createElement('div');
+          tile.classList.add('tile');
+          tile.style.backgroundPosition = `-${c * 100}px -${r * 100}px`;
+          tile.dataset.correctIndex = r * cols + c;
+          tiles.push(tile);
+        }
+      }
+
+      // Shuffle tiles
+      tiles.sort(() => Math.random() - 0.5);
+
+      tiles.forEach((tile, i) => {
+        tile.dataset.index = i;
+        tile.addEventListener('click', () => swapTile(i));
+        puzzleContainer.appendChild(tile);
+      });
+    }
+
+    function swapTile(index) {
+      const emptyIndex = [...puzzleContainer.children].findIndex(el => el.classList.contains('empty'));
+      if (emptyIndex === -1 || !isAdjacent(index, emptyIndex)) return;
+
+      const children = [...puzzleContainer.children];
+      puzzleContainer.insertBefore(children[index], children[emptyIndex]);
+      puzzleContainer.insertBefore(children[emptyIndex], children[index + 1]);
+      checkWin();
+    }
+
+    function isAdjacent(i1, i2) {
+      const r1 = Math.floor(i1 / cols), c1 = i1 % cols;
+      const r2 = Math.floor(i2 / cols), c2 = i2 % cols;
+      return (Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1;
+    }
+
+    function checkWin() {
+      const children = [...puzzleContainer.children];
+      const correct = children.every((child, i) => parseInt(child.dataset.correctIndex) === i);
+      if (correct) {
+        setTimeout(() => alert('Congratulations! You solved the puzzle!'), 100);
+      }
+    }
+  </script>
+</body>
+</html>
